@@ -1,20 +1,20 @@
 import { setUser } from "../config";
 import { getSystemErrorMessage } from "node:util";
-import {getUser, createUser } from "../lib/db/queries/users.js"
+import {getUser, createUser, deleteUsers } from "../lib/db/queries/users.js"
 
 
 export type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 export type CommandsRegistry = Record<string, CommandHandler>;
 
-export async function registerCommand(registry: CommandsRegistry, cmdName: string, handler:CommandHandler): void{
+export async function registerCommand(registry: CommandsRegistry, cmdName: string, handler:CommandHandler): Promise<void>{
     if(registry[cmdName]){
         throw new Error(`Command: "${cmdName}" is already registered.`);
     }
     registry[cmdName] = handler;
 }
 
-export async function runCommand(registry: CommandsRegistry, cmdName: string, ...args: string[]): void{
+export async function runCommand(registry: CommandsRegistry, cmdName: string, ...args: string[]): Promise<void>{
     if(!registry[cmdName]){
         throw new Error("The command does not exist");
     }
@@ -22,8 +22,13 @@ export async function runCommand(registry: CommandsRegistry, cmdName: string, ..
     await handler(cmdName, ...args);
 }
 
+export async function handlerReset(cmdName: string, ...args:string[]): Promise<void>{
+    deleteUsers();
+    console.log("The table has been reset your highness");
+}
 
-export async function handlerLogin(cmdName: string, ...args: string[]): void{
+
+export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void>{
     if(args.length !== 1){
         throw new Error("Login expects a single argument -> username");
     }

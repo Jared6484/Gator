@@ -1,6 +1,6 @@
 import { exit } from "process";
 //import { setUser, readConfig } from "../config";
-import { CommandsRegistry, handlerLogin, registerCommand, runCommand, handlerRegister } from "./commands/commands";
+import { CommandsRegistry, handlerLogin, registerCommand, runCommand, handlerRegister, handlerReset } from "./commands/commands";
 
 async function main() {
   //setUser("Jared");
@@ -14,6 +14,7 @@ async function main() {
   //registry["login"] = handlerLogin;
   registerCommand(registry, "login", handlerLogin);
   registerCommand(registry, "register", handlerRegister);
+  registerCommand(registry, "reset", handlerReset);
 
   let cmdLine = process.argv;
   let cutCmdLine: string[] = cmdLine.slice(2);
@@ -24,10 +25,6 @@ async function main() {
   const cmd = cutCmdLine[0];
   const cmdLineArgs: string[] = cutCmdLine.slice(1);
 
-  if(cmdLineArgs.length === 0){
-    throw new Error("A username is required");
-    //process.exit(1); 
-  }
   try{
     await runCommand(registry, cmd, ...cmdLineArgs);
   } catch (e){
