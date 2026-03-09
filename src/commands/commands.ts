@@ -1,6 +1,10 @@
-import { setUser } from "../config";
+import { readConfig, setUser } from "../config";
 import { getSystemErrorMessage } from "node:util";
-import {getUser, createUser, deleteUsers } from "../lib/db/queries/users.js"
+import {getUser, createUser, deleteUsers, getUsers } from "../lib/db/queries/users.js"
+import { Agent } from "node:http";
+import { XMLParser } from "fast-xml-parser";
+import { resourceLimits } from "node:worker_threads";
+import { url } from "node:inspector";
 
 
 export type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
@@ -23,7 +27,8 @@ export async function runCommand(registry: CommandsRegistry, cmdName: string, ..
 }
 
 export async function handlerReset(cmdName: string, ...args:string[]): Promise<void>{
-    deleteUsers();
+    console.log("Deleting user");
+    await deleteUsers();
     console.log("The table has been reset your highness");
 }
 
@@ -61,3 +66,85 @@ export async function handlerRegister(cmdName: string, ...args: string[]): Promi
     console.log("Username has been set in gatorconfig.");
 }
 
+export async function handlerUsers(cmdName: string, ...args: string[]): Promise<void>{
+    let users = await getUsers();
+
+    const cfg = await readConfig();
+    const currentUser = cfg.currentUserName;
+
+    for(const user of users){
+        if(user.name === currentUser){
+            console.log(`* ${user.name} (current)`);
+            continue;
+        }
+        console.log(`* ${user.name}`);
+    }
+}
+
+export async function handlerAgg(cmdName: string, ...args: string[]): Promise<void>{
+
+    const url = "https://www.wagslane.dev/index.xml"
+    const file = await fetchFeed(url);
+    console.log(file);
+}
+
+export async function fetchFeed(feedURL: string){
+    const response = await fetch(feedURL,  {
+        headers: {
+            "User-Agent": "gator-cli"
+        }
+    });
+    if(!response.ok){
+        throw new Error(`Request failed: ${response.status}`);
+    }
+    const text = await response.text();
+    
+    const parseOBJ =  new XMLParser();
+
+    const result = parseOBJ.parse(text);
+
+    if(!result.rss?.channel){
+        throw new Error("Channel doesn't exist when trying to fetchFeed");
+    }
+
+    const {title, link, description } = result.rss?.channel;
+    if(!title || !link || !description){
+        throw new Error("Missing title, link, or description from fetchFeed result");
+    }
+    
+
+
+    let items = [];
+
+    if(result.rss?.channel.item){
+        if(Array.isArray(result.rss?.channel.items)){
+            items = result.rss?.channel.item;
+        } else{
+            items = [result.rss?.channel.item];
+        }
+    } else{
+        items = [];
+    }
+
+    const feedItems = [];
+    for(const item of items){
+        console.log(item);
+        const { title, link, description, pubDate } = item;
+
+        if(!title || !link || !pubDate){
+            continue;
+        }
+        feedItems.push({title, link, description,pubDate});
+    }
+
+    const feed = {
+        channel: {
+            title,
+            link,
+            description,
+            item: feedItems,
+        }
+    };
+    return feed;
+
+}

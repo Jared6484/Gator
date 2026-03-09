@@ -1,6 +1,6 @@
 import { exit } from "process";
 //import { setUser, readConfig } from "../config";
-import { CommandsRegistry, handlerLogin, registerCommand, runCommand, handlerRegister, handlerReset } from "./commands/commands";
+import { CommandsRegistry, handlerLogin, registerCommand, runCommand, handlerRegister, handlerReset, handlerUsers, handlerAgg } from "./commands/commands";
 
 async function main() {
   //setUser("Jared");
@@ -15,6 +15,8 @@ async function main() {
   registerCommand(registry, "login", handlerLogin);
   registerCommand(registry, "register", handlerRegister);
   registerCommand(registry, "reset", handlerReset);
+  registerCommand(registry, "users", handlerUsers);
+  registerCommand(registry, "agg", handlerAgg);
 
   let cmdLine = process.argv;
   let cutCmdLine: string[] = cmdLine.slice(2);
