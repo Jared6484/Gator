@@ -8,6 +8,13 @@
       "when": 1772582709750,
       "tag": "0000_lively_grey_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773108945519,
+      "tag": "0001_aromatic_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,8 @@ import { Agent } from "node:http";
 import { XMLParser } from "fast-xml-parser";
 import { resourceLimits } from "node:worker_threads";
 import { url } from "node:inspector";
+import { db } from "src/lib/db";
+import {feeds, Feed, User} from "src/lib/db/schema";
 
 
 export type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
@@ -32,6 +34,37 @@ export async function handlerReset(cmdName: string, ...args:string[]): Promise<v
     console.log("The table has been reset your highness");
 }
 
+export async function handlerAddFeed(cmdName:string, ...args:string[]): Promise<void>{
+    const cfg = await readConfig();
+    const currentUser = cfg.currentUserName;
+    if(!currentUser){throw new Error("current user not set");}
+    const user = await getUser(currentUser);
+
+    if(!user){
+        throw new Error("No current user is set"); 
+    }
+
+    if(args.length < 2 || args.length >2){
+        console.log("addFeed command takes 2 arguments (name and url)");
+        process.exit(1);
+    }
+
+    const [name, url] = args;
+    const feed = await createFeed(name, url, user.id);
+
+    await printFeed(feed, user)
+
+}
+
+export async function printFeed(feed: Feed, user: User){
+    console.log("Feed:");
+    console.log(`  id: ${feed.id}`);
+    console.log(`  createdAt: ${feed.createdAt}`);
+    console.log(`  updatedAt: ${feed.updatedAt}`);
+    console.log(`  name: ${feed.name}`);
+    console.log(`  url: ${feed.url}`);
+    console.log(`  added by user: ${user.name}`);
+}
 
 export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void>{
     if(args.length !== 1){
@@ -148,3 +181,17 @@ export async function fetchFeed(feedURL: string){
     return feed;
 
 }
+
+export async function createFeed(name: string, url: string, userId: string){
+    const [feed] = await db
+        .insert(feeds)
+        .values({
+            name: name,
+            url: url,
+            userId: userId,
+        })
+        .returning();
+
+    return feed;
+}
+
