@@ -49,15 +49,7 @@ export async function handlerReset(cmdName: string, ...args:string[]): Promise<v
     console.log("The table has been reset your highness");
 }
 
-export async function handlerAddFeed(cmdName:string, user:string,  ...args:string[]): Promise<void>{
-    const cfg = await readConfig();
-    const currentUser = cfg.currentUserName;
-    if(!currentUser){throw new Error("current user not set");}
-    const user = await getUser(currentUser);  // user is now the row from the Db.
-
-    if(!user){
-        throw new Error("No current user is set"); 
-    }
+export async function handlerAddFeed(cmdName:string, user:User,  ...args:string[]): Promise<void>{
 
     if(args.length < 2 || args.length >2){
         console.log("addFeed command takes 2 arguments (name and url)");
@@ -148,17 +140,11 @@ export async function handlerAgg(cmdName: string, ...args: string[]): Promise<vo
     console.log(file);
 }
 
-export async function handlerFollow(cmdName: string, ...args:string[]): Promise<void>{
+export async function handlerFollow(cmdName: string, user:User, ...args:string[]): Promise<void>{
     const [url] = args;
     if (!url) {
         throw new Error("url argument required");
     }
-
-    const cfg = await readConfig();
-    if (!cfg.currentUserName) {
-        throw new Error("no user logged in");
-    }
-    const user = await getUser(cfg.currentUserName);
 
     const feedByURL = await getFeedsByURL(url);
     if(!feedByURL){
@@ -170,17 +156,11 @@ export async function handlerFollow(cmdName: string, ...args:string[]): Promise<
     console.log(feedFollow.userName);
 }
 
-export async function handlerFollowing(cmdName:string, ...args:string[]): Promise<void>{
-    const cfg = await readConfig();
-    if (!cfg.currentUserName) {
-        throw new Error("no user logged in");
-    }
-    const user = await getUser(cfg.currentUserName);
-
+export async function handlerFollowing(cmdName:string, user:User, ...args:string[]): Promise<void>{
     const follows = await getFeedFollowsForUser({userId: user.id});
     for(const feed of follows){
         console.log(feed.feedName);
-    }
+    } 
 }
 
 export async function fetchFeed(feedURL: string){
