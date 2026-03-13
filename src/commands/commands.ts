@@ -6,12 +6,27 @@ import { XMLParser } from "fast-xml-parser";
 import { resourceLimits } from "node:worker_threads";
 import { url } from "node:inspector";
 import { db } from "src/lib/db";
-import {feeds, Feed, User} from "src/lib/db/schema";
+import {feeds, Feed, User, feedFollows} from "src/lib/db/schema";
+import { getFeeds, getFeedsByURL } from "src/lib/db/queries/feeds";
+import { createFeedFollow, getFeedFollowsForUser } from "./feedFollows";
 
 
 export type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 
 export type CommandsRegistry = Record<string, CommandHandler>;
+
+export type UserCommandHandler = (cmdName: string, user: User, ...args: string[]) => Promise<void>;
+
+export function middlewareLoggedIn(handler: UserCommandHandler): CommandHandler {
+    return async(cmdName:string, ...args: string[]) => {
+    const cfg = await readConfig();
+    const currentUser = cfg.currentUserName;
+    if(!currentUser){throw new Error("current user not set");}
+    const user = await getUser(currentUser);
+    await handler(cmdName, user, ...args);
+    };
+
+}
 
 export async function registerCommand(registry: CommandsRegistry, cmdName: string, handler:CommandHandler): Promise<void>{
     if(registry[cmdName]){
@@ -34,11 +49,11 @@ export async function handlerReset(cmdName: string, ...args:string[]): Promise<v
     console.log("The table has been reset your highness");
 }
 
-export async function handlerAddFeed(cmdName:string, ...args:string[]): Promise<void>{
+export async function handlerAddFeed(cmdName:string, user:string,  ...args:string[]): Promise<void>{
     const cfg = await readConfig();
     const currentUser = cfg.currentUserName;
     if(!currentUser){throw new Error("current user not set");}
-    const user = await getUser(currentUser);
+    const user = await getUser(currentUser);  // user is now the row from the Db.
 
     if(!user){
         throw new Error("No current user is set"); 
@@ -51,9 +66,11 @@ export async function handlerAddFeed(cmdName:string, ...args:string[]): Promise<
 
     const [name, url] = args;
     const feed = await createFeed(name, url, user.id);
+    //console.log(`THIS IS MY TEST ${user.id}`);
 
     await printFeed(feed, user)
 
+    await createFeedFollow({ userId: user.id, feedId: feed.id });
 }
 
 export async function printFeed(feed: Feed, user: User){
@@ -64,6 +81,16 @@ export async function printFeed(feed: Feed, user: User){
     console.log(`  name: ${feed.name}`);
     console.log(`  url: ${feed.url}`);
     console.log(`  added by user: ${user.name}`);
+}
+
+export async function handlerFeeds(cmdName: string, ...args:string[]): Promise<void>{
+    const feeds = await getFeeds();
+
+    for(const feed of feeds){
+        console.log(feed.name);
+        console.log(feed.url);
+        console.log(feed.username);
+    }
 }
 
 export async function handlerLogin(cmdName: string, ...args: string[]): Promise<void>{
@@ -119,6 +146,41 @@ export async function handlerAgg(cmdName: string, ...args: string[]): Promise<vo
     const url = "https://www.wagslane.dev/index.xml"
     const file = await fetchFeed(url);
     console.log(file);
+}
+
+export async function handlerFollow(cmdName: string, ...args:string[]): Promise<void>{
+    const [url] = args;
+    if (!url) {
+        throw new Error("url argument required");
+    }
+
+    const cfg = await readConfig();
+    if (!cfg.currentUserName) {
+        throw new Error("no user logged in");
+    }
+    const user = await getUser(cfg.currentUserName);
+
+    const feedByURL = await getFeedsByURL(url);
+    if(!feedByURL){
+        throw new Error("URL does not exist");
+    }
+    const feedFollow = await createFeedFollow({userId: user.id, feedId: feedByURL.id});
+
+    console.log(feedFollow.feedName);
+    console.log(feedFollow.userName);
+}
+
+export async function handlerFollowing(cmdName:string, ...args:string[]): Promise<void>{
+    const cfg = await readConfig();
+    if (!cfg.currentUserName) {
+        throw new Error("no user logged in");
+    }
+    const user = await getUser(cfg.currentUserName);
+
+    const follows = await getFeedFollowsForUser({userId: user.id});
+    for(const feed of follows){
+        console.log(feed.feedName);
+    }
 }
 
 export async function fetchFeed(feedURL: string){
